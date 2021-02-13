@@ -18,7 +18,7 @@ import (
 type Advertisement struct {
 	ID 			primitive.ObjectID `json:"_id,omitempty" bson:"_id,omitempty"`
 	Name 		string `json:"name,omitempty" bson:"name,omitempty" validate:"name"`
-	Price 		float64 `json:"price,omitempty" bson:"price, omitempty" validate:"gte=0"`
+	Price 		float64 `json:"price,omitempty" bson:"price,omitempty" validate:"price"`
 	Description string `json:"description,omitempty" bson:"description,omitempty" validate:"description"`
 	Links 		[]string `json:"links,omitempty" bson:"links,omitempty" validate:"links"`
 
@@ -58,11 +58,20 @@ func validateName(fl validator.FieldLevel) bool {
 	return true
 }
 
+func validatePrice(fl validator.FieldLevel) bool {
+	if fl.Field().Float() > 0 {
+		return true
+	} else {
+		return false
+	}
+}
+
 func validateAdvertisement(advertisement *Advertisement) error {
 	validate := validator.New()
 	validate.RegisterValidation("links", validateLinks)
 	validate.RegisterValidation("description", validateDescription)
 	validate.RegisterValidation("name", validateName)
+	validate.RegisterValidation("price", validatePrice)
 	return validate.Struct(advertisement)
 }
 
