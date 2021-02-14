@@ -12,6 +12,7 @@ import (
 	"gopkg.in/go-playground/validator.v10"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -96,9 +97,27 @@ func addAdvertisement(response http.ResponseWriter, request *http.Request) {
 }
 
 func getAdvertisement (response http.ResponseWriter, request *http.Request) {
+	addDescription := false  // Flag to Add description to a response
+	addLinks := false  // Flag to Add all links to a response
+
+	// Sets type of a response to JSON:
 	response.Header().Add("content-type", "application/json")
-	params := mux.Vars(request)
-	id, _ := primitive.ObjectIDFromHex(params["id"])
+	params := mux.Vars(request)  // gets Params from URL
+	id, _ := primitive.ObjectIDFromHex(params["id"]) // ID of an Ad
+	values := request.URL.Query() // gets all Values from the URL
+	fields, ok := values["fields"]  // Extracts fields from the URL
+	if ok { // Fields parameter was specified
+		for _, field := range fields {
+			if field == "description" {
+				addDescription = true  // We need to add description
+			}
+			if field == "links" {
+				addLinks = true  // We need to add all links
+			}
+
+		}
+	}
+
 	var advertisement Advertisement
 	collection := client.Database("advertisements").Collection("advertisements")
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
@@ -108,33 +127,81 @@ func getAdvertisement (response http.ResponseWriter, request *http.Request) {
 		response.Write([]byte(`{ "message": "` + err.Error() + `"}`))
 		return
 	}
-	json.NewEncoder(response).Encode(advertisement)
+	if addLinks && addDescription {
+		// Sends full info about Advertisement:
+		json.NewEncoder(response).Encode(advertisement)
+		return
+	} else if addLinks {
+		advertisement.Description = ""
+		json.NewEncoder(response).Encode(advertisement)
+		return
+	} else if addDescription {
+		advertisement.Links = []string{advertisement.Links[0]}
+		json.NewEncoder(response).Encode(advertisement)
+		return
+	} else {
+		advertisement.Description = ""
+		advertisement.Links = []string{advertisement.Links[0]}
+		json.NewEncoder(response).Encode(advertisement)
+		return
+	}
 }
 
-func getAdvertisements (response http.ResponseWriter, request *http.Request) {
+
+
+func getPage(response http.ResponseWriter, request *http.Request) {
+	PAGE_SIZE := 10  // Number of Ads on one page
 	response.Header().Add("content-type", "application/json")
 	var advertisements []Advertisement
-	collection := client.Database("advertisements").Collection("advertisements")
-	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-	cursor, err := collection.Find(ctx, bson.M{})
+	params := mux.Vars(request)
+	pageNum, err := strconv.Atoi(params["pageNum"])
 	if err != nil {
 		response.WriteHeader(http.StatusInternalServerError)
 		response.Write([]byte(`{ "message": "` + err.Error() + `"}`))
 		return
 	}
-	defer cursor.Close(ctx)
-	for cursor.Next(ctx) {
-		var advertisement Advertisement
-		cursor.Decode(&advertisement)
-		advertisements = append(advertisements, advertisement)
+	values := request.URL.Query()
+	sortParameter, ok := values["sort"]  // Gets Param for Sort
 
-	}
-	if err := cursor.Err(); err != nil {
+	if ok {
+		collection := client.Database("advertisements").Collection("advertisements")
+		ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+		findOptions := options.Find()
+		findOptions.SetLimit(int64(PAGE_SIZE))
+		findOptions.SetSkip(int64(PAGE_SIZE * (pageNum - 1)))
+
+		if sortParameter[0] == "price" {
+			findOptions.SetSort(bson.D{{"price", 1}})
+
+		}
+
+		cursor, err := collection.Find(ctx, bson.D{}, findOptions)
+		if err != nil {
+			response.WriteHeader(http.StatusInternalServerError)
+			response.Write([]byte(`{ "message": "` + err.Error() + `"}`))
+			return
+		}
+		defer cursor.Close(ctx)
+		for cursor.Next(ctx) {
+			var advertisement Advertisement
+			cursor.Decode(&advertisement)
+			advertisements = append(advertisements, advertisement)
+
+		}
+		if err := cursor.Err(); err != nil {
+			response.WriteHeader(http.StatusInternalServerError)
+			response.Write([]byte(`{ "message": "` + err.Error() + `"}`))
+			return
+		}
+		json.NewEncoder(response).Encode(advertisements)
+
+	}else {
 		response.WriteHeader(http.StatusInternalServerError)
-		response.Write([]byte(`{ "message": "` + err.Error() + `"}`))
+		response.Write([]byte(`{ "message": Sort parameter is not specified.\nChose added or price"`))
 		return
 	}
-	json.NewEncoder(response).Encode(advertisements)
+
+
 }
 
 
@@ -143,8 +210,8 @@ func handleRequests()  {
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/", homePage)
 	router.HandleFunc("/add_advertisement", addAdvertisement).Methods("POST")
-	router.HandleFunc("/advertisements", getAdvertisements).Methods("GET")
 	router.HandleFunc("/advertisement/{id}", getAdvertisement).Methods("GET")
+	router.HandleFunc("/ads/{pageNum}", getPage)
 	log.Fatal(http.ListenAndServe(":8001", router))
 }
 
