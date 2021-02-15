@@ -22,6 +22,7 @@ type Advertisement struct {
 	Price 		float64 `json:"price,omitempty" bson:"price,omitempty" validate:"price"`
 	Description string `json:"description,omitempty" bson:"description,omitempty" validate:"description"`
 	Links 		[]string `json:"links,omitempty" bson:"links,omitempty" validate:"links"`
+	CreatedAt   int64 `json:"created_at,omitempty" bson:"created_at,omitempty" `
 
 }
 
@@ -84,6 +85,7 @@ func addAdvertisement(response http.ResponseWriter, request *http.Request) {
 	var advertisement Advertisement
 	json.NewDecoder(request.Body).Decode(&advertisement)
 	err := validateAdvertisement(&advertisement)
+	advertisement.CreatedAt = int64(time.Now().Unix())
 	if err != nil {
 		response.WriteHeader(http.StatusInternalServerError)
 		response.Write([]byte(`{ "Error": "` + err.Error() + `"}`))
@@ -127,6 +129,7 @@ func getAdvertisement (response http.ResponseWriter, request *http.Request) {
 		response.Write([]byte(`{ "message": "` + err.Error() + `"}`))
 		return
 	}
+	advertisement.CreatedAt = 0  // Removes CreatedAt field from
 	if addLinks && addDescription {
 		// Sends full info about Advertisement:
 		json.NewEncoder(response).Encode(advertisement)
@@ -162,6 +165,11 @@ func getPage(response http.ResponseWriter, request *http.Request) {
 	}
 	values := request.URL.Query()
 	sortParameter, ok := values["sort"]  // Gets Param for Sort
+	sortDirection, directionOk := values["direction"]  // Gets Direction of Sort
+
+	if !directionOk {
+		sortDirection = []string{"desc"}  // Default value for Sort Direction
+	}
 
 	if ok {
 		collection := client.Database("advertisements").Collection("advertisements")
@@ -170,9 +178,21 @@ func getPage(response http.ResponseWriter, request *http.Request) {
 		findOptions.SetLimit(int64(PAGE_SIZE))
 		findOptions.SetSkip(int64(PAGE_SIZE * (pageNum - 1)))
 
-		if sortParameter[0] == "price" {
-			findOptions.SetSort(bson.D{{"price", 1}})
+		if sortParameter[0] == "price" { // Sort by Price
+			if sortDirection[0] == "asc" {
+				findOptions.SetSort(bson.D{{"price", 1}})
+			} else {
+				findOptions.SetSort(bson.D{{"price", -1}})
+			}
 
+		}
+
+		if sortParameter[0] == "time" {  // Sort by TimeStamps
+			if sortDirection[0] == "asc" {
+				findOptions.SetSort(bson.D{{"created_at", 1}})
+			} else {
+				findOptions.SetSort(bson.D{{"created_at", -1}})
+			}
 		}
 
 		cursor, err := collection.Find(ctx, bson.D{}, findOptions)
@@ -185,6 +205,7 @@ func getPage(response http.ResponseWriter, request *http.Request) {
 		for cursor.Next(ctx) {
 			var advertisement Advertisement
 			cursor.Decode(&advertisement)
+			advertisement.CreatedAt = 0
 			advertisements = append(advertisements, advertisement)
 
 		}
