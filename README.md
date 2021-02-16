@@ -8,7 +8,7 @@
 
 ## Description of methods
 - `/add_advertisement  POST`  
-Takes `JSON description` of an advertisement and returns an `ID` from the database   
+Takes `JSON description` of an advertisement and returns new `ID` from the database   
   Example:  
   ```
   {
@@ -19,9 +19,13 @@ Takes `JSON description` of an advertisement and returns an `ID` from the databa
       "links": ["first link", "second link", "third link"]
   }
   ```
-- `/ads/{page_num}  GET`  
+- `/ads/{page_num}?sort={sort_parameter}?direction={sort_direction}  GET`    
 Gets a page with 10 advertisements by its number.  
-  `page_num` - pagination parameter, `int`
+  Sorts advertisements by `sort_parameter`(`price` or `time`) which should be specified in a query  
+  `direction` is `desc` by default but could be changed to `asc`  
+  `page_num` - pagination parameter, `int`  
+  Query: `/ads/1?sort=time`  
+  This query would return the first page with ads from latest to oldest advertisements  
   Example of a result:  
  ```
  [
@@ -57,8 +61,12 @@ Example of a result:
 ```  
 ## Technologies used  
 - Go lang  
-- MongoDb
+- MongoDb  
+- Docker
 - gorilla/mux router  
+
+## Docker  
+Project could be built by running `docker-compose up` and it uses port `5000` but the port could be changer in Environment Variables
 
 ### Example of data in MongoDb  
 <img src="image_assets/Data.png" height="200px"/>
