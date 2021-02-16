@@ -58,10 +58,10 @@ Example of a result:
 ## Technologies used  
 - Go lang  
 - MongoDb
-- Gorilla/mux router  
+- gorilla/mux router  
 
 ### Example of data in MongoDb  
-<img src="image_assets/Data.png" height="100px"/>
+<img src="image_assets/Data.png" height="200px"/>
 
 
 
