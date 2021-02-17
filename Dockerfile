@@ -4,6 +4,7 @@ ENV GOPATH=/
 
 COPY ./ ./
 
+ENV PORT ":5000"
 
 RUN go get github.com/gorilla/mux
 RUN go get go.mongodb.org/mongo-driver/bson

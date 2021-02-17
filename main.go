@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -233,7 +234,7 @@ func handleRequests()  {
 	router.HandleFunc("/add_advertisement", addAdvertisement).Methods("POST")
 	router.HandleFunc("/advertisement/{id}", getAdvertisement).Methods("GET")
 	router.HandleFunc("/ads/{pageNum}", getPage)
-	log.Fatal(http.ListenAndServe(":8001", router))
+	log.Fatal(http.ListenAndServe(os.Getenv("PORT"), router))
 }
 
 
